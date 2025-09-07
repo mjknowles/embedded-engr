@@ -1,1 +1,28 @@
 .claude
+
+# Rust
+target/
+Cargo.lock
+*.pdb
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
