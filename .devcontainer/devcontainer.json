@@ -1,0 +1,27 @@
+{
+  "name": "Rust Development",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "rust-dev",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb",
+        "fill-labs.dependi",
+        "esbnp.prettier-vscode"
+      ],
+      "settings": {              
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  },
+  "postCreateCommand": "rustc --version && cargo --version && claude --version",
+  "remoteUser": "vscode"
+}
