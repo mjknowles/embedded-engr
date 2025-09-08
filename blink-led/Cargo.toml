@@ -1,0 +1,20 @@
+[package]
+name = "blink-led"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+stm32f4xx-hal = { version = "0.22", features = ["stm32f446"] }
+panic-halt = "1.0.0"
+
+[profile.dev]
+codegen-units = 1
+debug = true
+lto = false
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = true

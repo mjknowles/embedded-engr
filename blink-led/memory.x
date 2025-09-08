@@ -1,0 +1,9 @@
+MEMORY
+{
+  /* NOTE 1 K = 1 KiByte = 1024 bytes */
+  /* STM32F446RE has 512K flash, 128K RAM */
+  FLASH : ORIGIN = 0x08000000, LENGTH = 512K
+  RAM : ORIGIN = 0x20000000, LENGTH = 128K
+}
+
+_estack = ORIGIN(RAM) + LENGTH(RAM);
