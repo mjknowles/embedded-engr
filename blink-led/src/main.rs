@@ -13,8 +13,8 @@ fn main() -> ! {
 
     loop {
         led.set_high();
-        cortex_m::asm::delay(8_000_000);
+        cortex_m::asm::delay(2_000_000); // ~0.25 seconds
         led.set_low();
-        cortex_m::asm::delay(8_000_000);
+        cortex_m::asm::delay(2_000_000); // ~0.25 seconds
     }
 }
