@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "blink-led",
+    "snake-game",
+]
+resolver = "3"
+
+[workspace.dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+stm32f4xx-hal = { version = "0.22", features = ["stm32f446"] }
+panic-halt = "1.0.0"
+nb = "1.1.0"
+
+[profile.dev]
+codegen-units = 1
+debug = true
+lto = false
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = true
