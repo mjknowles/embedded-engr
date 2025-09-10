@@ -15,14 +15,11 @@ fn main() -> ! {
     // Get device peripherals - hardware access
     let dp = pac::Peripherals::take().unwrap();
 
-    // Get core peripherals - CPU-level stuff
-    // let cp = cortex_m::peripheral::Peripherals::take().unwrap();
-
     // Configure system clocks - your chip needs to know how fast to run
     let rcc = dp.RCC.constrain();
     let clocks = rcc.cfgr.freeze();
 
-    // Get GPIO ports
+    // Get GPIO (general purpose IO) ports
     let gpioa = dp.GPIOA.split();
 
     // Configure UART pins
@@ -42,27 +39,86 @@ fn main() -> ! {
     .unwrap();
 
     // Split UART into transmit and receive parts
-    let (mut tx, mut _rx) = uart.split();
+    let (mut tx, mut rx) = uart.split();
 
     // Your LED for visual feedback
     let mut led = gpioa.pa5.into_push_pull_output();
 
+    // Send welcome message
+    for byte in b"STM32 Snake Game Ready!\r\n" {
+        block!(tx.write(*byte)).unwrap();
+    }
+    for byte in b"Type 'w', 'a', 's', 'd' to move:\r\n" {
+        block!(tx.write(*byte)).unwrap();
+    }
+
     loop {
         // Infinite loop - embedded programs never exit
 
-        // STEP 8: Send text to your computer terminal
-        // b"Hello..." creates a byte string (array of u8)
-        // \r\n = carriage return + newline (proper line ending)
-        for byte in b"Hello from STM32!\r\n" {
-            // block!() waits until UART hardware is ready
-            // tx.write() sends one byte at a time
-            block!(tx.write(*byte)).unwrap();
-        }
+        // Check if we received any keyboard input
+        // nb::Error::WouldBlock means "no data available right now"
+        match rx.read() {
+            Ok(received_byte) => {
+                // We got a character! Let's respond to it
 
-        // STEP 9: Visual feedback with LED
-        led.set_high(); // Turn LED on
-        cortex_m::asm::delay(8_000_000); // Wait ~1 second
-        led.set_low(); // Turn LED off
-        cortex_m::asm::delay(8_000_000); // Wait ~1 second
+                // Echo back what we received (so you can see what you typed)
+                for byte in b"You pressed: " {
+                    block!(tx.write(*byte)).unwrap();
+                }
+                block!(tx.write(received_byte)).unwrap(); // The actual key
+                for byte in b"\r\n" {
+                    block!(tx.write(*byte)).unwrap();
+                }
+
+                // React to specific keys (future Snake controls!)
+                match received_byte {
+                    b'w' => {
+                        for byte in b"Moving UP!\r\n" {
+                            block!(tx.write(*byte)).unwrap();
+                        }
+                        led.set_high(); // Turn LED on for up
+                    }
+                    b'a' => {
+                        for byte in b"Moving LEFT!\r\n" {
+                            block!(tx.write(*byte)).unwrap();
+                        }
+                        led.set_low(); // Turn LED off for left
+                    }
+                    b's' => {
+                        for byte in b"Moving DOWN!\r\n" {
+                            block!(tx.write(*byte)).unwrap();
+                        }
+                        led.set_high(); // Turn LED on for down
+                    }
+                    b'd' => {
+                        for byte in b"Moving RIGHT!\r\n" {
+                            block!(tx.write(*byte)).unwrap();
+                        }
+                        led.set_low(); // Turn LED off for right
+                    }
+                    b'q' => {
+                        for byte in b"Quit command received!\r\n" {
+                            block!(tx.write(*byte)).unwrap();
+                        }
+                    }
+                    _ => {
+                        // Any other key
+                        for byte in b"Unknown command. Use w/a/s/d to move.\r\n" {
+                            block!(tx.write(*byte)).unwrap();
+                        }
+                    }
+                }
+            }
+            Err(nb::Error::WouldBlock) => {
+                // No data available - this is normal!
+                // Don't do anything, just continue the loop
+            }
+            Err(_) => {
+                // Some other error occurred
+                for byte in b"UART Error!\r\n" {
+                    block!(tx.write(*byte)).unwrap();
+                }
+            }
+        }
     }
 }
