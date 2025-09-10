@@ -10,6 +10,144 @@ use stm32f4xx_hal::{
     serial::{config::Config, Serial},
 };
 
+// Game constants
+const BOARD_WIDTH: usize = 20;
+const BOARD_HEIGHT: usize = 15;
+const MAX_SNAKE_LENGTH: usize = 100;
+
+// Game cell types
+#[derive(Clone, Copy, PartialEq)]
+enum Cell {
+    Empty,
+    Wall,
+    Snake,
+    Food,
+}
+
+// Position on the game board
+#[derive(Clone, Copy, PartialEq)]
+struct Position {
+    x: usize,
+    y: usize,
+}
+
+// Snake movement direction
+#[derive(Clone, Copy, PartialEq)]
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+// Main game state
+struct GameState {
+    // Game board - 2D array of cells
+    board: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
+
+    // Snake data
+    snake_body: [Position; MAX_SNAKE_LENGTH], // Snake segments
+    snake_length: usize,                      // Current snake length
+    snake_direction: Direction,               // Current movement direction
+
+    // Food position
+    food_position: Position,
+
+    // Game status
+    score: u32,
+    game_over: bool,
+}
+
+impl GameState {
+    fn new() -> Self {
+        let mut game = GameState {
+            board: [[Cell::Empty; BOARD_WIDTH]; BOARD_HEIGHT],
+            snake_body: [Position { x: 0, y: 0 }; MAX_SNAKE_LENGTH],
+            snake_length: 3, // Start with 3 segments
+            snake_direction: Direction::Right,
+            food_position: Position { x: 15, y: 7 },
+            score: 0,
+            game_over: false,
+        };
+
+        // Initialize snake in the middle of the board
+        game.snake_body[0] = Position { x: 10, y: 7 }; // Head
+        game.snake_body[1] = Position { x: 9, y: 7 }; // Body
+        game.snake_body[2] = Position { x: 8, y: 7 }; // Tail
+
+        // Set up the board borders
+        game.setup_board();
+
+        game
+    }
+
+    fn setup_board(&mut self) {
+        // Clear the board
+        for row in 0..BOARD_HEIGHT {
+            for col in 0..BOARD_WIDTH {
+                self.board[row][col] = Cell::Empty;
+            }
+        }
+
+        // Add walls around the border
+        for col in 0..BOARD_WIDTH {
+            self.board[0][col] = Cell::Wall; // Top wall
+            self.board[BOARD_HEIGHT - 1][col] = Cell::Wall; // Bottom wall
+        }
+
+        for row in 0..BOARD_HEIGHT {
+            self.board[row][0] = Cell::Wall; // Left wall
+            self.board[row][BOARD_WIDTH - 1] = Cell::Wall; // Right wall
+        }
+
+        // Place snake on board
+        for i in 0..self.snake_length {
+            let pos = self.snake_body[i];
+            self.board[pos.y][pos.x] = Cell::Snake;
+        }
+
+        // Place food on board
+        self.board[self.food_position.y][self.food_position.x] = Cell::Food;
+    }
+}
+
+// Helper function to send a string over UART
+fn send_string(tx: &mut stm32f4xx_hal::serial::Tx<stm32f4xx_hal::pac::USART2>, text: &[u8]) {
+    for byte in text {
+        block!(tx.write(*byte)).unwrap();
+    }
+}
+
+// Function to render the game board to terminal
+fn render_game(tx: &mut stm32f4xx_hal::serial::Tx<stm32f4xx_hal::pac::USART2>, game: &GameState) {
+    // Clear screen (ANSI escape code)
+    send_string(tx, b"\x1b[2J\x1b[H");
+
+    // Render the board
+    for row in 0..BOARD_HEIGHT {
+        for col in 0..BOARD_WIDTH {
+            let character = match game.board[row][col] {
+                Cell::Empty => b' ',
+                Cell::Wall => b'#',
+                Cell::Snake => b'o',
+                Cell::Food => b'*',
+            };
+            block!(tx.write(character)).unwrap();
+        }
+        send_string(tx, b"\r\n"); // End of row
+    }
+
+    // Show game info
+    send_string(tx, b"Score: ");
+    // For now, just show a placeholder score
+    send_string(tx, b"000\r\n");
+    send_string(tx, b"Controls: w/a/s/d to move, q to quit\r\n");
+
+    if game.game_over {
+        send_string(tx, b"GAME OVER! Press any key to restart.\r\n");
+    }
+}
+
 #[entry]
 fn main() -> ! {
     // Get device peripherals - hardware access
@@ -44,81 +182,55 @@ fn main() -> ! {
     // Your LED for visual feedback
     let mut led = gpioa.pa5.into_push_pull_output();
 
-    // Send welcome message
-    for byte in b"STM32 Snake Game Ready!\r\n" {
-        block!(tx.write(*byte)).unwrap();
-    }
-    for byte in b"Type 'w', 'a', 's', 'd' to move:\r\n" {
-        block!(tx.write(*byte)).unwrap();
+    let mut game = GameState::new();
+
+    // Welcome message
+    send_string(&mut tx, b"Welcome to STM32 Snake!\r\n");
+    send_string(&mut tx, b"Use w/a/s/d to control the snake.\r\n");
+    send_string(&mut tx, b"Press any key to start...\r\n");
+
+    // Wait for first keypress to start
+    loop {
+        if rx.read().is_ok() {
+            break;
+        }
     }
 
     loop {
-        // Infinite loop - embedded programs never exit
+        // Render the current game state
+        render_game(&mut tx, &game);
 
-        // Check if we received any keyboard input
-        // nb::Error::WouldBlock means "no data available right now"
+        // Handle input (non-blocking)
         match rx.read() {
             Ok(received_byte) => {
-                // We got a character! Let's respond to it
-
-                // Echo back what we received (so you can see what you typed)
-                for byte in b"You pressed: " {
-                    block!(tx.write(*byte)).unwrap();
-                }
-                block!(tx.write(received_byte)).unwrap(); // The actual key
-                for byte in b"\r\n" {
-                    block!(tx.write(*byte)).unwrap();
-                }
-
-                // React to specific keys (future Snake controls!)
                 match received_byte {
-                    b'w' => {
-                        for byte in b"Moving UP!\r\n" {
-                            block!(tx.write(*byte)).unwrap();
-                        }
-                        led.set_high(); // Turn LED on for up
-                    }
-                    b'a' => {
-                        for byte in b"Moving LEFT!\r\n" {
-                            block!(tx.write(*byte)).unwrap();
-                        }
-                        led.set_low(); // Turn LED off for left
-                    }
-                    b's' => {
-                        for byte in b"Moving DOWN!\r\n" {
-                            block!(tx.write(*byte)).unwrap();
-                        }
-                        led.set_high(); // Turn LED on for down
-                    }
-                    b'd' => {
-                        for byte in b"Moving RIGHT!\r\n" {
-                            block!(tx.write(*byte)).unwrap();
-                        }
-                        led.set_low(); // Turn LED off for right
-                    }
+                    b'w' => game.snake_direction = Direction::Up,
+                    b'a' => game.snake_direction = Direction::Left,
+                    b's' => game.snake_direction = Direction::Down,
+                    b'd' => game.snake_direction = Direction::Right,
                     b'q' => {
-                        for byte in b"Quit command received!\r\n" {
-                            block!(tx.write(*byte)).unwrap();
-                        }
+                        send_string(&mut tx, b"Thanks for playing!\r\n");
+                        // In a real game, we might reset or quit
                     }
                     _ => {
-                        // Any other key
-                        for byte in b"Unknown command. Use w/a/s/d to move.\r\n" {
-                            block!(tx.write(*byte)).unwrap();
-                        }
+                        // Unknown key - ignore
                     }
                 }
+
+                // Visual feedback - blink LED when key pressed
+                led.set_high();
+                cortex_m::asm::delay(1_000_000);
+                led.set_low();
             }
             Err(nb::Error::WouldBlock) => {
-                // No data available - this is normal!
-                // Don't do anything, just continue the loop
+                // No input available - that's fine
             }
             Err(_) => {
-                // Some other error occurred
-                for byte in b"UART Error!\r\n" {
-                    block!(tx.write(*byte)).unwrap();
-                }
+                // Some error occurred
             }
         }
+
+        // Game timing - delay between frames
+        cortex_m::asm::delay(8_000_000); // ~1 second per frame for now
     }
 }

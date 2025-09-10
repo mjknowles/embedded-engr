@@ -1,3 +1,7 @@
+# Embedded-Engr Repo
+
+This repo is for me learning things I can do with a STM32 Nucleo F446RE board.
+
 # Helpful Commands
 
 ```zsh
@@ -6,6 +10,9 @@ cargo run
 
 # connect to board
 screen /dev/tty.usbmodem* 115200
+
+# exit screen tool
+# ctral+a, k, y
 
 # show size of program
 cargo size --bin snake-game --release -- -A > memory-size.txt
