@@ -12,7 +12,7 @@ cargo run
 screen /dev/tty.usbmodem* 115200
 
 # exit screen tool
-# ctral+a, k, y
+# ctrl+a, k, y
 
 # show size of program
 cargo size --bin snake-game --release -- -A > memory-size.txt
